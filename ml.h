@@ -20,6 +20,7 @@ unsigned char ml_version(char *ml);
 
 struct vector *ml_get_trackers(char *ml, unsigned char format);
 
-char *ml_get_info_hash_percent_encoded(char *ml, unsigned char format);
+// Return the 20 byte raw sha1 info hash from the manget linl
+unsigned char *ml_get_raw_info_hash(char *ml, unsigned char format);
 #endif
 

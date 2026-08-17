@@ -20,10 +20,8 @@ struct peer;
 // number. Returns NULL on error or exits program. trackers is a vector
 // of tracker urls obtained from the magnet link (btih formt).
 struct vector *get_peer_list_from_trackers(struct vector *trackers,
-					   char *percent_encoded_info_hash,
-					   char *percent_encoded_peer_id,
-					   char *local_ipv4_ddress,
-					   unsigned short local_listening_port);
+					   unsigned char *info_hash,
+					   unsigned char *peer_id);
 
 
 #endif

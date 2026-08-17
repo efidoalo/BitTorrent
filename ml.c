@@ -120,39 +120,42 @@ struct vector *ml_get_trackers(char *ml, unsigned char fmt)
 	}
 }
 
-char *ml_get_info_hash_percent_encoded(char *ml, unsigned char format)
+unsigned char *ml_get_raw_info_hash(char *ml, unsigned char format)
 {
 	if (format != 1) {
 		printf("Error. Unexpected magnet l8nk format when extracting info hash.\n");
 		exit(EXIT_FAILURE);
 	}
 	else {
-		char *info_hash_percent_encoded = (char *)malloc(61);
-		if (info_hash_percent_encoded == NULL) {
-			printf("Error allocating memory for perent encoded info hash. %s.\n", strerror(errno));
+		unsigned char *info_hash = (unsigned char *)malloc(20);
+		if (info_hash == NULL) {
+			printf("Error allocating memory for info hash. %s.\n", strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 		char *ml_prefix = "magnet:?xt=urn:btih:";
 		size_t ml_prefix_len = strlen(ml_prefix);
 		for (int i=0; i<20; ++i) {
-			info_hash_percent_encoded[i*3] = '%';
-			// first char of current byte
-			if (ml[ml_prefix_len + (i*2)] < 91) {
-				info_hash_percent_encoded[(i*3) + 1] = ml[ml_prefix_len + (i*2)];
-			}	
-			else {
-				info_hash_percent_encoded[(i*3) + 1] = ml[ml_prefix_len + (i*2)] - 97 + 65;
+			unsigned char curr_byte = 0;
+			if (ml[ml_prefix_len+i+0] <= 57) {
+				curr_byte += ((ml[ml_prefix_len+i+0]) - 48)*16;
 			}
-			//second char of current byte
-			if (ml[ml_prefix_len + (i*2) + 1] < 91) {
-                                info_hash_percent_encoded[(i*3) + 2] = ml[ml_prefix_len + (i*2) + 1];
+			else if (ml[ml_prefix_len+i+0] <= 90) {
+				curr_byte += ((ml[ml_prefix_len+i+0]) - 55)*16;
+			}
+			else if (ml[ml_prefix_len + i + 0] <= 122) {
+				curr_byte += ((ml[ml_prefix_len+i+0]) - 87)*16;
+			}
+			if (ml[ml_prefix_len+i+1] <= 57) {
+                                curr_byte += ((ml[ml_prefix_len+i+1]) - 48);
                         }
-                        else {
-                                info_hash_percent_encoded[(i*3) + 2] = ml[ml_prefix_len + (i*2)+1] -
- 97 + 65;
+                        else if (ml[ml_prefix_len+i+1] <= 90) {
+                                curr_byte += ((ml[ml_prefix_len+i+1]) - 55);
                         }
+                        else if (ml[ml_prefix_len + i + 1] <= 122) {
+                                curr_byte += ((ml[ml_prefix_len+i+1]) - 87);
+                        }
+			info_hash[i] = curr_byte;
 		}
-		info_hash_percent_encoded[60] = 0;
-		return info_hash_percent_encoded;
+		return info_hash;
 	}
 }
