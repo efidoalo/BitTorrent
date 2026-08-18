@@ -136,23 +136,23 @@ unsigned char *ml_get_raw_info_hash(char *ml, unsigned char format)
 		size_t ml_prefix_len = strlen(ml_prefix);
 		for (int i=0; i<20; ++i) {
 			unsigned char curr_byte = 0;
-			if (ml[ml_prefix_len+i+0] <= 57) {
-				curr_byte += ((ml[ml_prefix_len+i+0]) - 48)*16;
+			if (ml[ml_prefix_len+(i*2)+0] <= 57) {
+				curr_byte += ((ml[ml_prefix_len+(i*2)+0]) - 48)*16;
 			}
-			else if (ml[ml_prefix_len+i+0] <= 90) {
-				curr_byte += ((ml[ml_prefix_len+i+0]) - 55)*16;
+			else if (ml[ml_prefix_len+(i*2)+0] <= 90) {
+				curr_byte += ((ml[ml_prefix_len+(i*2)+0]) - 55)*16;
 			}
-			else if (ml[ml_prefix_len + i + 0] <= 122) {
-				curr_byte += ((ml[ml_prefix_len+i+0]) - 87)*16;
+			else if (ml[ml_prefix_len + (i*2) + 0] <= 122) {
+				curr_byte += ((ml[ml_prefix_len+(i*2)+0]) - 87)*16;
 			}
-			if (ml[ml_prefix_len+i+1] <= 57) {
-                                curr_byte += ((ml[ml_prefix_len+i+1]) - 48);
+			if (ml[ml_prefix_len+(i*2)+1] <= 57) {
+                                curr_byte += ((ml[ml_prefix_len+(i*2)+1]) - 48);
                         }
-                        else if (ml[ml_prefix_len+i+1] <= 90) {
-                                curr_byte += ((ml[ml_prefix_len+i+1]) - 55);
+                        else if (ml[ml_prefix_len+(i*2)+1] <= 90) {
+                                curr_byte += ((ml[ml_prefix_len+(i*2)+1]) - 55);
                         }
-                        else if (ml[ml_prefix_len + i + 1] <= 122) {
-                                curr_byte += ((ml[ml_prefix_len+i+1]) - 87);
+                        else if (ml[ml_prefix_len + (i*2) + 1] <= 122) {
+                                curr_byte += ((ml[ml_prefix_len+(i*2)+1]) - 87);
                         }
 			info_hash[i] = curr_byte;
 		}

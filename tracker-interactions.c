@@ -99,8 +99,8 @@ int send_announce_request(int client_socket_fd,
 			  time_t connect_id_recvd,
 			  unsigned char connection_id[8],
     			  unsigned char transaction_id[4],
-			  unsigned char info_hash[20],
-			  unsigned char peer_id[20],
+			  unsigned char* info_hash,
+			  unsigned char* peer_id,
 			  unsigned char key[4])
 {
 
@@ -110,14 +110,19 @@ int send_announce_request(int client_socket_fd,
 	memcpy(&(announce_request[12]), transaction_id, 4);
 	memcpy(&(announce_request[16]), info_hash, 20);
 	memcpy(&(announce_request[36]), peer_id, 20);
-	//memset(&(announce_request[64]), 255, 8); default left field to zero
+	memset(&(announce_request[64]), 255, 8); 
 	announce_request[83] = 2;
+	// private ip address - default to 0
+	/*announce_request[84] = 192;
+	announce_request[85] = 168;
+	announce_request[86] = 0;
+	announce_request[87] = 237; */
 	memcpy(&(announce_request[88]), key, 4); // client identifying key
 	// num_want details the max number of peers returned by tracker
 	memset(&(announce_request[92]), 255, 4); // default maximum number of peers
 	// 6881 = 1ae1 in hex which is port number
 	announce_request[96] = 0x1a;
-	announce_request[97] = 0xe1;
+	announce_request[97] = 0xe5;
 	int total_bytes_sent = 0;
 	while (total_bytes_sent < 98) {
 		time_t now = time(NULL);
@@ -259,7 +264,7 @@ struct vector *get_peer_list_from_trackers(struct vector *trackers,
 					   unsigned char *info_hash,
 					   unsigned char *peer_id)
 {
-	int max_number_of_peers = 1000;
+	int max_number_of_peers = 100;
 	int no_of_trackers = vector_get_size(trackers);
 	struct vector *peers = vector_null_init(sizeof(struct peer), print_peer);
 	unsigned char key[4] = { rand() % 256, rand() % 256, rand() % 256, rand() % 256};

@@ -14,7 +14,11 @@
 #define __TRACKER_INTERACTIONS_H__
 #include "vector.h"
 
-struct peer;
+struct peer
+{
+        unsigned char ip[4]; // internet protocol address
+        unsigned short port; // peer port number
+};
 
 // returns vector of peers, where each peer contains an ip adress, id and port
 // number. Returns NULL on error or exits program. trackers is a vector
