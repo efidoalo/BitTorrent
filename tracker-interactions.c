@@ -42,15 +42,6 @@ struct peer
 	unsigned short port; // peer port number
 };
 
-// returns 1 if the buffer of length len includes a bencoded dictionary, 0 otherwise
-unsigned char includes_bencoded_dictionary(char *buff, int len)
-{
-	for (int i=0; i<len; ++i) {
-		if (buff[i] == 'd') {
-			
-		}
-	}
-}
 
 void print_peer(void *peer_address)
 {

@@ -20,6 +20,8 @@ struct peer
         unsigned short port; // peer port number
 };
 
+void print_peer(void *p);
+
 // returns vector of peers, where each peer contains an ip adress, id and port
 // number. Returns NULL on error or exits program. trackers is a vector
 // of tracker urls obtained from the magnet link (btih formt).
