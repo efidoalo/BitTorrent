@@ -36,11 +36,11 @@ unsigned char *get_transaction_id()
 	return transaction_id;
 }
 
-struct peer
+/*struct peer
 {
 	unsigned char ip[4]; // internet protocol address
 	unsigned short port; // peer port number
-};
+};*/
 
 
 void print_peer(void *peer_address)
@@ -324,7 +324,8 @@ struct vector *get_peer_list_from_trackers(struct vector *trackers,
                 struct addrinfo *tracker_address = NULL;
 		printf("Trying to get address of tracker %s:%s\n", tracker_hostname, tracker_port_string);
 		if (getaddrinfo(tracker_hostname, tracker_port_string, &hints, &tracker_address) != 0) {
-                        free(tracker_hostname);
+                        printf("Error getting tracker %s:%s address when calling getaddrinfo.\n", tracker_hostname, tracker_port_string);
+			free(tracker_hostname);
                         continue;
                 }
 		else {

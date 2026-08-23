@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <stdint.h>
+#include <unistd.h>
 
 // returns x to the power of y
 uint32_t int_pow(uint32_t x, uint32_t y)
@@ -299,16 +300,313 @@ unsigned char *get_bt_message(int client_socket_fd, uint32_t message_length, str
 	return bt_message;
 }
 
+// circular left shift by 1 bit position
+void circular_left_shift_1bit(unsigned char w[4])
+{
+	unsigned char circled_bit = (w[0] & 0x80) >> 7;
+	w[0] = w[0] << 1;
+	if (w[1] & 0x80) {
+		w[0] += 1;
+	}	
+	w[1] = w[1] << 1;
+	if (w[2] & 0x80) {
+		w[1] += 1;
+	}
+	w[2] = w[2] << 1;
+	if (w[3] & 0x80) {
+		w[2] += 1;
+	}
+	w[3] = w[3] << 1;
+	w[3] = w[3] + circled_bit;
+}
+
+// circular left shift w by n bits where 0 <= n <32
+void circular_left_shift(uint32_t *w, unsigned char n)
+{
+
+	uint32_t res = ((*w) << n) | ((*w) >> (32-n));
+	*w = res;
+}
+
+// returns an unsigned char pointer which is the address of 4 unsigned chars
+// or returns the null pointer on error
+uint32_t k_t(int t) {
+	if ((t >= 0) && (t<=19)) {
+		return 0x5A827999;
+	}
+	else if ( (t>=20) && (t<=39) ) {
+		return 0x6ED9EBA1;
+	}
+	else if ( (t>=40) && (t<=59) ) {
+		return 0x8F1BBCDC;
+	}
+	else if ( (t>=60) && (t<= 79)) {
+		return 0xCA62C1D6;
+	}
+}
+
+// returns a dynamically allocated array of 4 unsigned chars or the null pointer
+// on failure
+uint32_t f_t(int t, uint32_t B, uint32_t C, uint32_t D)
+{
+	uint32_t res = 0;
+	if ((t>=0) && (t<=19)) {
+		res = (B & C) | (~(B) & D);
+		return res;
+	}
+	else if ( (t>= 20) && (t<=39) ) {
+		res = B ^ C ^ D;
+		return res;
+	}
+	else if ( (t>=40) && (t<= 59) ) {
+		res = (((B & C) | (B & D)) | (C & D));
+		return res;
+	}
+	else if ( (t>=60) && (t<=79) ) {
+		res = B ^ C ^ D;
+		return res;
+	}
+}
+
+// initializes a to a+b where a anb are 4 unsigned chars allocated or arrays
+void sum(unsigned char *a, unsigned char *b)
+{
+	unsigned char carry_byte = 0;
+	for (int j=3; j>=0; --j) {
+		unsigned int total_curr_byte = a[j] + b[j];
+		unsigned char *curr_byte = (unsigned char *)(&total_curr_byte);
+		a[j] = (*curr_byte) + carry_byte;
+		if (j>=1) {
+			++curr_byte;
+			carry_byte = *curr_byte;
+		}
+	}
+}
+
 // performs an sha1 hash on the data of length bytes and returns a 20
 // byte digest.
 // returns the null pointer on error.
+// data has been mallocated previously
 unsigned char *sha_1_hash(unsigned char *data, unsigned long long int length)
 {
 	if (data == 0) {
 		return 0;
-	}	
+	}
+	uint64_t data_bit_length = length*8;
 
+	if ( (data_bit_length % 512) != 0) {
+		//perform padding
+		if ( (data_bit_length % 512) <= (512 - 65) ) {
+			unsigned long long int padding_bits = 512 - (data_bit_length % 512);
+			if ((padding_bits % 8) != 0) {
+				printf("Error in the number of padding bits required. SHould be a multiple of 8.\n");
+				return 0;
+			}	
+			unsigned long long int no_of_padding_bytes = padding_bits/8;
+			void *buff = realloc(data, length + no_of_padding_bytes);
+			data = (unsigned char *)buff;
+			unsigned char *original_bit_length = (unsigned char *)(&data_bit_length);
+			uint64_t padded_length = length + no_of_padding_bytes;
+			data[padded_length-1] = *original_bit_length;
+			++original_bit_length;
+			data[padded_length-2] = *original_bit_length;
+			++original_bit_length;
+			data[padded_length-3] = *original_bit_length;
+			++original_bit_length;
+			data[padded_length-4] = *original_bit_length;
+			++original_bit_length;
+			data[padded_length-5] = *original_bit_length;
+                        ++original_bit_length;
+                        data[padded_length-6] = *original_bit_length;
+                        ++original_bit_length;
+                        data[padded_length-7] = *original_bit_length;
+                        ++original_bit_length;
+                        data[padded_length-8] = *original_bit_length;
+			data[length] = 0x80; // append 1
+			memset(&(data[length+1]), 0, (padded_length-9)-(length+1)+1);
+			data_bit_length = ((length+no_of_padding_bytes)*8);
+		}
+		else {
+				
+			uint64_t padding_bytes = ((512 - (data_bit_length % 512))/8)						 + 64;
+			data = realloc(data, length+padding_bytes);
+			data[length] = 0x80;
+			unsigned char *original_bit_length = (unsigned char *)(&data_bit_length);
+			uint64_t padded_length = length + padding_bytes;
+			data[padded_length-1] = *original_bit_length;
+			++original_bit_length;
+			data[padded_length-2] = *original_bit_length;
+			++original_bit_length;
+			data[padded_length-3] = *original_bit_length;
+			++original_bit_length;
+			data[padded_length-4] = *original_bit_length;
+			++original_bit_length;
+			data[padded_length-5] = *original_bit_length;
+                        ++original_bit_length;
+                        data[padded_length-6] = *original_bit_length;
+                        ++original_bit_length;
+                        data[padded_length-7] = *original_bit_length;
+                        ++original_bit_length;
+                        data[padded_length-8] = *original_bit_length;
+			memset(&(data[length+1]), 0, (padded_length-9) - (length+1) + 1);		
+			data_bit_length = ((length+padding_bytes)*8);
+		}
+	}
+	printf("Data bit length after padding: %lu\n", data_bit_length);
+	printf("Padded message:\n");
+	for (int i=0; i< (data_bit_length/8); ++i) {
+		printf("%2x", data[i]);
+	}
+	printf("\n");
+	// padding if necessary is complete
+	uint32_t A = 0, B=0, C=0, D=0, E=0;
+	uint32_t H0=0, H1=0, H2=0, H3=0, H4=0;
+	uint32_t W[80] = {0}; // 80, 32 bit words
+	uint32_t TEMP = {0};
+	if ((data_bit_length % 512) != 0) {
+		printf("Error during padding as padded message not a multiple of 512 bits.\n");
+
+	}
+	uint32_t n = data_bit_length / 512;
+	H0 = 0x67452301;
+	H1 = 0xEFCDAB89;
+	H2 = 0x98BADCFE;
+	H3 = 0x10325476;
+	H4 = 0xC3D2E1F0;	
+	for (int i=0; i<n; ++i) {
+		for (int j=0; j<16; ++j) {
+			W[j] = (data[(i*64)+(j*4)] << 24) +
+			       (data[(i*64)+(j*4)+1] << 16) +
+			       (data[(i*64)+(j*4)+2] << 8) +
+			       (data[(i*64)+(j*4)+3]);
+		}
+		for (int t=16; t<=79; ++t) {
+			uint32_t w_temp = W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16];
+			circular_left_shift(&w_temp, 1);
+			W[t] = w_temp;
+		}
+		A = H0;
+		B=H1;
+		C=H2;
+		D=H3;
+		E=H4;
+		for (int t=0; t<=79; ++t) {
+			uint32_t A_shifted = A;
+			circular_left_shift(&A_shifted, 5);
+			uint32_t f = f_t(t, B, C, D);
+			uint32_t k = k_t(t);
+			TEMP = A_shifted + f + E + W[t] + k;
+			E=D;
+			D=C;
+			uint32_t B_shifted = B;
+			circular_left_shift(&B_shifted, 30);
+			C=B_shifted;
+			B=A;
+			A=TEMP;
+		}
+		// H0 = H0 + A
+		H0 += A;
+		H1 += B;
+		H2 += C;
+		H3 += D;
+		H4 += E;
+	}
+	unsigned char *res = (unsigned char *)malloc(20);
+	if (res == 0) {
+		printf("Error allocating memory for 20 byte sha1 digest result.\n");
+		return 0;
+	}
+	unsigned char *H0_addr = (unsigned char *)(&H0);
+	H0_addr += 3;
+	res[0] = *H0_addr;
+	--H0_addr;
+	res[1] = *H0_addr;
+	--H0_addr;
+	res[2] = *H0_addr;
+	--H0_addr;
+	res[3] = *H0_addr;
+	unsigned char *H1_addr = (unsigned char *)(&H1);
+        H1_addr += 3;
+        res[4] = *H1_addr;
+        --H1_addr;
+        res[5] = *H1_addr;
+        --H1_addr;
+        res[6] = *H1_addr;
+        --H1_addr;
+        res[7] = *H1_addr;
+	unsigned char *H2_addr = (unsigned char *)(&H2);
+        H2_addr += 3;
+        res[8] = *H2_addr;
+        --H2_addr;
+        res[9] = *H2_addr;
+        --H2_addr;
+        res[10] = *H2_addr;
+        --H2_addr;
+        res[11] = *H2_addr;
+	unsigned char *H3_addr = (unsigned char *)(&H3);
+        H3_addr += 3;
+        res[12] = *H3_addr;
+        --H3_addr;
+        res[13] = *H3_addr;
+        --H3_addr;
+        res[14] = *H3_addr;
+        --H3_addr;
+        res[15] = *H3_addr;
+	unsigned char *H4_addr = (unsigned char *)(&H4);
+        H4_addr += 3;
+        res[16] = *H4_addr;
+        --H4_addr;
+        res[17] = *H4_addr;
+        --H4_addr;
+        res[18] = *H4_addr;
+        --H4_addr;
+        res[19] = *H4_addr;
+	return res;
 }
+
+// return 0 on failure, 1 on success
+unsigned char insert_piece_into_file(unsigned char *piece, struct metadata_info *mi, long long int piece_index)
+{
+	if (mi->length) {
+		char *download_prefix = "~/Downloads/";
+		char *file_name = (char *)malloc(strlen(download_prefix) + strlen(mi->name) + 1);
+		memcpy(file_name, download_prefix, strlen(download_prefix));
+		memcpy(&(file_name[srtlen(download_prefix)]), mi_>name, strlen(mi->name));
+		file_name[strlen(download_prefix) + strlen(mi->name)] = 0;
+		FILE *f = fopen(file_name, "r+");
+		if (f==0) {
+			printf("Error opening downloaded file to write downloaded data to. %s.\n",
+					strerror(errno));
+			return 0;
+		}		
+		else {
+			if ( fseek(f, SEEK_SET, piece_index*(mi->piece_length)) == -1) {
+				printf("Error seeking to file location in order to write data downloaded data into the file. %s.\n",
+					strerror(errno));
+				return 0;
+			}
+			else {
+				if ( fwrite(piece, 1, mi->piece_length, f) != (mi->piece_length) ) {
+					printf("Error occurred writing downloaded data to file.\n");
+					return 0;
+				}
+				else {
+					printf("Successfully written sha1 validated piece to downloaded file.\n");
+					return 1;
+				}
+				
+			}
+		}
+	}
+	else {
+		// download represents multiple files
+		uint64_t download_offset = piece_index*(mi->piece_length);
+		
+	}
+}
+
+	
+
 
 // the first byte of message indicates the message type as follows
 // 0 - choke
@@ -542,6 +840,32 @@ int process_message( int client_socket_fd,
 								if (btree_no_of_nodes(pim->subpieces_downloaded) == number_of_subpieces_in_piece) {
 									// we have a complete piece, perform SHA-1 hash on curr_piece to determine if the downloaded piece is valid
 									//TODO: implement SHA-1 algorithm	
+									unsigned char *sha1_hash = sha_1_hash(pim->curr_piece, pim->curr_piece_length);
+									unsigned char valid_piece_hash = 1;
+									if (pim->mi == 0) {
+										printf("Somehow we have received a piece before receiving the metdata info. \n");
+										return 0;
+									}
+									else {
+										for (int i=0; i<20; ++i) {
+											if ( ((pim->mi)->pieces)[(pim->curr_piece_index_downloading*20) + i] != sha1_hash[i]) {
+												valid_piece_hash = 0;
+											}
+										}
+									}
+									if (!valid_piece_hash) {
+										free_btree(pim->subpieces_downloaded);
+										pim->subpieces_downloaded = btree_null_init(sizeof(uint32_t),
+															    compare_int,
+															    print_int);
+										free(peer_data->cr);
+										peer_data->cr = 0;
+									}
+									else {
+										uint32_t successfull_download_piece_index = pim->curr_piece_index_downloading;
+										btree_insert(pim->pieces_downloaded, &successfull_download_piece_index);
+										insert_piece_into_file(pim->curr_piece, pim->mi, pim->curr_piece_index_downloading);	
+									}
 								}
 								return 1;
 							}
@@ -583,7 +907,7 @@ int main(int argc, char *argv[])
 	mi.files = 0;
 	mi.name = 0;
 	mi.pieces = 0;
-	mi. piece_length = 0;
+	mi.piece_length = 0;
 	printf("Initiating peer_interactions_metadata structure...\n");
 	struct peer_interactions_metadata pim;
 	pim.mi = 0;
@@ -620,17 +944,16 @@ int main(int argc, char *argv[])
 		(peers_data[i]).local_interest = 0;
 		(peers_data[i]).peer_choke = 0;
 		(peers_data[i]).peer_interest = 0;
-	 	(peers_data[i]).pieces_peer_has = 0;
 		(peers_data[i]).pieces_peer_has = init_null_btree(sizeof(uint32_t),
 								  compare_int,
 								  print_int);
 		(peers_data[i]).cr = 0;
 		(peers_data[i]).pr = 0;
 		for (int j=0; j<5; ++j) {
-			(peers_data[i]).subpiece_pipeline[j] = -1;
+			((peers_data[i]).subpiece_pipeline)[j] = -1;
 		}
 		for (int j=0; j<6; ++j) {
-			(peers_data[i]).data_downloaded[j] = 0;
+			((peers_data[i]).data_downloaded)[j] = 0;
 		}	
 	}
 	int curr_peer_index = 0;
@@ -638,6 +961,42 @@ int main(int argc, char *argv[])
 	// reserved bytes are chosen to support the extension protocol
 	unsigned char reserved_bytes[8] = {0x00, 0x00, 0x00, 0x00,
 					   0x00, 0x10, 0x00, 0x00};
+	
+	// testing sha1 algorithm
+	unsigned char *data = (unsigned char *)malloc(3);
+	if (data == 0) {
+		printf("Error allocating memory to test sha-1 algorithm.\n");
+		return 0;	
+	}
+	data[0] = 'a';
+	data[1] = 'b';
+	data[2] = 'c';
+	unsigned char *digest = sha_1_hash(data, 3);
+	if (digest == 0) {
+		printf("Error computing sha_1 hash.\n");
+		return 0;
+	}	
+	printf("Sha-1 digest of 'abc' is : \n");	
+	for (int i=0; i<20; ++i) {
+		printf("%x",digest[i]);
+	}
+	printf("\n");
+	printf("Sum test:\n");
+	unsigned char a[4] = {0x00, 0x00, 0x12, 0xE1};
+	unsigned char b[4] = {0x00, 0x00, 0x11, 0x35};
+	sum(a,b);
+	printf("The sum of a and b is: ");
+	for (int i=0; i<4; ++i) {
+		printf("%x",a[i]);
+	}
+	printf("\n");
+	unsigned char c[4] = {0xab, 0x3c, 0x10, 0x34};
+	circular_left_shift_1bit(c);
+	printf("c left shifted 1 bit:\n");
+	for (int i=0; i<4; ++i) {
+		printf("%x ", c[i]);
+	}
+	printf("\n");
 	//TODO: Have seperate thread that sends bittorrent keep alives periodically to 
 	// connected peers. have a shared binary tree storing integers that are the peer
 	// indexes of connected peers that the thread sends keep alives to and insert

@@ -54,7 +54,7 @@ void print_int(void *i)
 struct metadata_info
 {
 	char *name; // name of the file (for single file download) or directory (for download
-		    // of multiple files)
+		    // of multiple files) is null terminated string
 	unsigned long long int piece_length; // number of bytes of each piece that constitutes the download
 	unsigned char *pieces; // array of a multiple of 20 where each successive 20 bytes
 			       // is the SHA1 hash of the corresponding piece in the download
@@ -74,6 +74,7 @@ struct request
 
 struct peer_interactions_metadata
 {
+
 	struct metadata_info *mi; // null if metadata info has not been found yet
 				  // a poniter to the initialized struct if 
 				  // it has been found and downloaded from peer
@@ -85,7 +86,7 @@ struct peer_interactions_metadata
 					       // starting indeices of the peices
 					       // that have been downloaded and
 					       // SHA-1 hash verified
-	unsigned char *curr_piece; // an array containing the current piece of the download
+	unsigned char *curr_piece; // an (m)allocated array containing the current piece of the download
 				   // having index curr_piece_index_downloading.
 				   // When we receive data from peers we place data into this
 				   // buffer and then when it's full verify it with the
